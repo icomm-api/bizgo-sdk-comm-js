@@ -1,0 +1,116 @@
+# @bizgo/bizgo-sdk-comm-js
+
+> TypeScript/JavaScript SDK for the Bizgo Communication API (Korea): SMS/LMS/MMS, international SMS, RCS, Kakao AlimTalk/BrandMessage, Naver TalkTalk, plus every other API in the spec (reservations, Kakao senders/templates, brand message, RCS brands/templates, insights, Kakao counsel talk). Install `npm install @bizgo/bizgo-sdk-comm-js`. Node.js >= 18, ESM and CommonJS, zero runtime dependencies. Server-side only.
+
+## Rules for generated code
+
+- Read the API key from the environment: `new Bizgo()` uses `BIZGO_API_KEY`. Never hard-code keys, never put them in browser or app code. The key is sent raw (no `Bearer`/`ApiKey` prefix); the SDK does this.
+- Use `Environment.SANDBOX` for tests (no real delivery). Default is PRODUCTION.
+- All methods are async: `await` them. Iterators are async: `for await (const m of client.messages.iterHistory({...}))`.
+- Every channel is sent with `client.send.omni({ to, messages: [...] })`. Wrap each message with its channel helper and put fallback channels after the primary one: `[alimtalk({...}), sms({...})]`. A helper just returns `{ <channelKey>: message }`.
+- Field names are the API names (camelCase, `from`). LMS and MMS both use `mms({...})`; MMS when `fileKey: [...]` is set (upload with `client.files.uploadMms` first, max 3 keys, jpg <= 300KB).
+- SMS text <= 90 bytes, LMS/MMS <= 2000 bytes, counted as EUC-KR (Hangul = 2 bytes, ASCII = 1). Emoji are rejected. Validation happens before sending and throws `ValidationError` (`error.issues: {path, message}[]`).
+- AlimTalk full send (no `sendType`) needs `msgType` (`'AT'` text, `'AI'` image) and `text`, e.g. `alimtalk({ senderKey, templateCode, msgType: 'AT', text })`; without `msgType` Bizgo returns A523, so the SDK throws `ValidationError` first. Reuse the template's `msgType` from `client.alimtalk.templates.get()`. Template auto-substitution: `alimtalk({ senderKey, templateCode, sendType: 'template' })` with `replaceWords` on every recipient (no `msgType`/`text`).
+- Conditional requirements from the spec (`x-sdk-required-if`) are checked before sending: AlimTalk/BrandMessage per `sendType`, BrandMessage button `WL` needs `urlPc`+`urlMobile` and `AL` needs `urlMobile`, RCS `header: '1'` needs `footer`, counsel talk attachments per `msgType`. Issues name the field path and condition only.
+- Unknown fields and unknown method options (e.g. `idempotency_key`) throw `ValidationError`. Use the documented camelCase names.
+- Max 200 recipients per request. For larger lists use `client.send.bulk({ to, messages, chunkSize?, concurrency?, idempotencyKeyPrefix? })`.
+- Set `idempotencyKey` on sends that may be retried; without it, sends are not retried after timeouts or 5xx (to avoid duplicates).
+- Bizgo requires `idempotencyTtl` (0-86400 s) whenever `idempotencyKey` is sent (A309 otherwise). The SDK fills `idempotencyTtl: 86400` (`DEFAULT_IDEMPOTENCY_TTL`) when a key is set without a TTL (send methods, bulk chunks, generated operations); an explicit TTL (including 0) is kept; no key means no TTL is added. Do not add a TTL by hand just to avoid A309.
+- A successful send only means *accepted*. Check `result.failed` for rejected recipients (resending with the same `idempotencyKey` is safe: already-accepted recipients come back with per-recipient code A301 in `result.duplicates`, not in `failed`/`succeeded`), and get final delivery results from reports (`client.reports.consume(handler)` or webhooks).
+- Substitution: text contains `#{name}`; values go in `to: [{ to: '01000000000', replaceWords: { name: '...' } }]`.
+- Dates: pass `Date` objects (converted to KST) or strings in the documented format.
+- Every other operation is a generated method `client.<resource>.<method>(params)` (resources nest: `client.alimtalk.templates.list`). `params` is ONE object: path values, query values and header values by their spec names, and the request body under `body`. Types: `<OperationId>Params`, `<OperationId>Result`. Paginated lists also have `iter<Method>(params)` (async iterator).
+- The client paces requests per instance: send APIs (spec `x-sdk-rate: send`: sendOmni, createReservation, addReservationRecipients, createBrandMessageGroupSend, sendCounselPlain, sendCounselRich) at 200 **messages**/s, counted per recipient (a 200-recipient request uses the whole second; no recipient list = 1); other APIs at 5 requests/s. This does not coordinate several processes sharing a key; 429 is still retried.
+- Every request carries `User-Agent: bizgo-sdk-comm-js/<ver> node/<ver> (<os>; <arch>)[ app/<name>-<ver>]` and `X-Bizgo-Client: bizgo-sdk-comm-js/<ver>`. Optional `appInfo: { name, version }` (letters, digits, `._-` / `._+-` only). These headers and Authorization cannot be overridden.
+- In tests, use `FakeFetch` from `@bizgo/bizgo-sdk-comm-js/testing` (`new Bizgo(fake.clientOptions())`), never real keys or numbers. Placeholders: `01000000000`, `test-api-key-not-real`, `SENDER_KEY_EXAMPLE`.
+
+## Quick reference
+
+```ts
+import { Bizgo, Environment, sms, mms, alimtalk, brandMessage, rcs, international, naverTalk } from '@bizgo/bizgo-sdk-comm-js';
+
+const client = new Bizgo({ environment: Environment.SANDBOX }); // options: apiKey, environment, baseUrl, timeoutMs, maxRetries, fetch, logger, rateLimit ({ send, other } | null), hooks, appInfo ({ name, version }), trustFetch (required with fetch)
+
+await client.send.sms({ to: '01000000000', from: '01000000000', text: '...' });                 // -> SendResult
+await client.send.lms({ to, from, text, title });
+await client.send.mms({ to, from, text, fileKeys: ['...'], title });
+await client.send.omni({ to, messages: [alimtalk({ senderKey, templateCode, msgType: 'AT', text }), sms({ ... })], ref, groupKey, paymentCode, idempotencyKey, idempotencyTtl });
+await client.send.request(sendOmniRequestBody);                                                  // raw body, validated
+// SendResult: destinations, succeeded, failed, duplicates (A301: already accepted with the same idempotencyKey), msgKeys, ref, trackingId
+await client.send.bulk({ to: manyNumbers, messages: [sms({ ... })], idempotencyKeyPrefix: 'campaign-1' });
+// BulkSendResult: results [{chunkIndex, fromIndex, toIndex, result}], errors [{chunkIndex, fromIndex, toIndex, error}], succeeded, failed, duplicates, msgKeys, complete (duplicates do not make it incomplete)
+
+await client.files.uploadMms(pathOrBufferOrBlob, { filename });        // -> { fileKey, expired }
+await client.files.uploadRcs(pathOrBufferOrBlob);                      // -> { media, expired }
+await client.files.uploadBrandMessage(file, { kind: 'default' | 'wide' | 'wideItemList' | 'wideItemList/first' | 'carouselFeed' | 'carouselCommerce' }); // -> { imgUrl }
+
+await client.reports.poll();               // -> ReportBatch { reportId, reports, empty }
+await client.reports.ack(reportId);
+await client.reports.consume(async (reports) => { /* store */ });  // acks only after the handler succeeded; -> number handled
+await client.reports.inquiry(msgKey);      // -> Report[]
+
+await client.messages.status(msgKey); await client.messages.statusByRequestId(requestId);   // -> MessageStatus[]
+await client.messages.statistics({ startDate, endDate, serviceType, groupKey });            // -> MessageStatistics[]
+await client.messages.history({ requestTime, serviceType, groupKey, lastSeq, limit });      // -> MessagePage { messages, lastSeq, hasNext }
+for await (const m of client.messages.iterHistory({ requestTime: new Date(), serviceType: ['SMS', 'ALIMTALK'] })) {}
+await client.messages.mo(msgKey); await client.messages.moHistory({ occurredTime, from, to, lastSeq, limit });
+for await (const mo of client.messages.iterMoHistory({ occurredTime })) {}
+
+import { WebhookReceiver, WebhookVerificationError } from '@bizgo/bizgo-sdk-comm-js/webhooks';
+const receiver = new WebhookReceiver(process.env.BIZGO_WEBHOOK_SECRET);
+// the webhook secret is obtained by requesting it from Bizgo; report/mo verify X-IB-Signature = HMAC-SHA256(secret, X-IB-Timestamp), hex or base64
+const report = receiver.report(req.headers, rawBody);   // throws WebhookVerificationError -> answer 401
+res.json(receiver.ack(report.msgKey));                  // {"msgKey": ...} within 5 seconds; dedupe by msgKey
+// counsel webhooks: counselMessage, counselReference, counselExpiredSession, counselSeenInfo, counselPersonalInfo,
+// counselCertResult, counselResult. Counsel webhooks carry no signature (signatures apply only to report/MO):
+// these methods do not check signature headers, only the body (size, JSON depth, shape).
+const message = receiver.counselMessage(req.headers, rawBody);
+res.json(receiver.counselAck());                        // {"code": "A000", "result": "Success"}
+// Without a webhook secret (counsel only): typed payload, same body checks
+import { counselAck, parseWebhook } from '@bizgo/bizgo-sdk-comm-js/webhooks';
+const event = parseWebhook('counselMessage', rawBody); // CounselMessageWebhookPayload
+res.json(counselAck());
+
+// Generated methods (examples)
+await client.alimtalk.templates.list({ senderKey: 'SENDER_KEY_EXAMPLE', limit: 100 });     // -> AlimtalkTemplate[]
+for await (const t of client.alimtalk.templates.iterList({ senderKey: 'SENDER_KEY_EXAMPLE' })) {}
+const resv = await client.reservations.create({ body: { resvSendTime: '2026-10-01 09:00:00', destinations: [{ to: '01000000000' }], messageFlow: [sms({ from: '01000000000', text: '...' })] } }); // resv.resvKey, resv.data
+await client.reservations.cancel({ resvKey: resv.resvKey });
+await client.kakao.senders.create({ token, phoneNumber, body: { yellowId, categoryCode } }); // token/phoneNumber go in headers
+await client.counsel.messages.sendPlain({ body: { senderKey, userKey, msgType: 'TEXT', message: '...' } });
+await client.files.uploadAlimtalkTemplateImage({ body: { file: 'logo.png' } });            // multipart; file = path | bytes | Blob | { data, filename }
+
+// Testing (no network)
+import { FakeFetch, signWebhook } from '@bizgo/bizgo-sdk-comm-js/testing';
+const fake = new FakeFetch();
+const testClient = new Bizgo(fake.clientOptions());
+fake.on('sendOmni').fail('service', 200, 'A020');   // or .sendResult('A000', 'A306'), .data({...}), .networkError(), .timeout()
+fake.lastRequest;                                  // { operationId, method, path, query, json, form, headerNames }
+
+// Observability: hooks receive operationId, operation, method, pathTemplate, status, layer, code, errorType, attempts, durationMs (never bodies or values)
+import { openTelemetryHooks } from '@bizgo/bizgo-sdk-comm-js/otel'; // needs the optional peer @opentelemetry/api
+new Bizgo({ hooks: openTelemetryHooks() });
+```
+
+## Errors
+
+- Retried request answered with request-level A301 -> `DuplicateRequestError.alreadyAccepted === true`: do not resend, query the status. Per-recipient A301 in a successful response -> `result.duplicates` (not an error).
+- `InvalidResponseError` (not JSON, > 16MB decompressed, JSON nested > 64, 3xx redirect — never followed or retried) has `httpStatus`, `trackingId`, non-enumerable `body`; for sends the message may already be accepted.
+- Serialize errors with `JSON.stringify(error)` and rebuild with `BizgoError.fromJSON(json)` (same class, no body). `structuredClone` drops the class.
+- Printing results (`console.log`, `util.inspect`, `toString`) masks phones (`010****0000`; 8-10 digits keep 3 and mask half+; <=7 fully), names/nicknames/emails (first char), content/text (length), tokens/keys (`[hidden]`); properties and `JSON.stringify` keep the real values. To log params or query objects use `redact(params)`.
+- Success responses never give `null`/`undefined`: missing data -> `{}` or `[]`. Only void operations (deletes, acks) return `undefined`.
+- A custom `fetch` requires `trustFetch: true` (caller guarantees no redirects/own retries/auth changes/TLS off). Prefer the global fetch with `NODE_EXTRA_CA_CERTS` / `NODE_USE_ENV_PROXY` for CA and proxies. `FakeFetch` from `/testing` needs no opt-in.
+- API keys must be printable ASCII with no surrounding whitespace/newline (rejected, not trimmed). Unreadable upload files -> `ValidationError` (file name only). Logger/hook exceptions (and async hook rejections) are swallowed.
+- Bulk idempotency keys are `<prefix>-<chunkSize>-<startIndex>-<hash8>` (SHA-256 of the chunk's numbers); re-run with the same list and chunkSize.
+
+`BizgoError` > `ConfigurationError`, `ValidationError`, `APIConnectionError` (> `APITimeoutError`), `APIError` (> `BadRequestError`, `AuthenticationError`, `PermissionDeniedError`, `NotFoundError`, `DuplicateRequestError`, `RateLimitError`, `InternalServerError`), `InvalidResponseError`, `WebhookVerificationError`.
+`APIError` has `httpStatus`, `code`, `layer` ('gateway' = common.authCode, 'service' = data.code; the same code differs by layer), `serverMessage`, `description` (Korean), `trackingId`, `body` (may contain phone numbers; do not log).
+`AuthenticationError` usually means a wrong key or an unregistered caller IP. `RateLimitError.retryAfter` is in seconds.
+
+## Links
+
+- [README](https://github.com/icomm-api/bizgo-sdk-comm-js/blob/main/README.md)
+- [Examples](https://github.com/icomm-api/bizgo-sdk-comm-js/tree/main/examples)
+- [OpenAPI spec](https://github.com/icomm-api/bizgo-api-spec/blob/main/dist/openapi.yaml)
+- [Bizgo API reference](https://developers.bizgo.io/api-sdk/api-reference)
+- [Error codes](https://developers.bizgo.io/api-sdk/api-reference/error-codes)

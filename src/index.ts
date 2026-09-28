@@ -1,69 +1,115 @@
-export * from "./Bizgo";
-export * from './services/auth/Auth';
-export * from './util/toJSON';
-
-export * from './services/file/File';
-
-export * from './services/report/polling/Polling';
-export * from './services/report/Report';
-export * from './services/report/webhook/Webhook';
-
-export * from './services/send/Send';
-
-export * from './services/insight/MessageStatus';
-export * from './services/insight/SendHistory';
-export * from './services/insight/Statistics';
-
-export * from './builders/config/AuthOptionsBuilder';
-export * from './builders/config/BizgoOptionsBuilder';
-
-export * from './builders/file/FileUploadRequestBuilder';
-
-
-export * from './builders/send/kakao/Alimtalk/AlimtalkAttachmentBuilder';
-export * from './builders/send/kakao/Alimtalk/AlimtalkBuilder';
-export * from './builders/send/kakao/Alimtalk/AlimtalkItemBuilder';
-export * from './builders/send/kakao/Alimtalk/AlimtalkItemListBuilder';
-export * from './builders/send/kakao/Alimtalk/AlimtalkSummaryBuilder';
-export * from './builders/send/kakao/Alimtalk/AlimtalkSupplementBuilder';
-
-export * from './builders/send/kakao/BrandMessage/BrandMessageAttachmentBuilder';
-export * from './builders/send/kakao/BrandMessage/BrandMessageBuilder';
-export * from './builders/send/kakao/BrandMessage/BrandMessageCarouselBuilder';
-export * from './builders/send/kakao/BrandMessage/BrandMessageCarouselHeadBuilder';
-export * from './builders/send/kakao/BrandMessage/BrandMessageCarouselListAttachmentBuilder';
-export * from './builders/send/kakao/BrandMessage/BrandMessageCarouselListBuilder';
-export * from './builders/send/kakao/BrandMessage/BrandMessageItemBuilder';
-export * from './builders/send/kakao/BrandMessage/BrandMessageVideoBuilder';
-export * from './builders/send/kakao/KakaoButtonBuilder';
-
-export * from './builders/send/mms/MMSBuilder';
-
-export * from './builders/send/omni/DestinationBuilder';
-export * from './builders/send/omni/MessageFlowBuilder';
-export * from './builders/send/omni/OMNIRequestBodyBuilder';
-
-export * from './builders/send/rcs/CarouselContentBuilder';
-export * from './builders/send/rcs/ComTButtonBuilder';
-export * from './builders/send/rcs/ComVButtonBuilder';
-export * from './builders/send/rcs/CopyButtonBuilder';
-export * from './builders/send/rcs/DialButtonBuilder';
-export * from './builders/send/rcs/MapLocButtonBuilder';
-export * from './builders/send/rcs/MapQryButtonBuilder';
-export * from './builders/send/rcs/MapSendButtonBuilder';
-export * from './builders/send/rcs/RCSBuilder';
-export * from './builders/send/rcs/RCSButtonBuilder';
-export * from './builders/send/rcs/RCSContentBuilder';
-export * from './builders/send/rcs/StandaloneContentBuilder';
-export * from './builders/send/rcs/SubContentBuilder';
-export * from './builders/send/rcs/TemplateContentBuilder';
-
-export * from './builders/send/sms/SMSBuilder';
-
-export * from './builders/send/international/InternationalBuilder';
-
-export * from './interfaces/insight/MessageStatusResponseBody';
-export * from './interfaces/insight/SendHistoryRequestBody';
-export * from './interfaces/insight/SendHistoryResponseBody';
-export * from './interfaces/insight/StatisticsRequestBody';
-export * from './interfaces/insight/StatisticsResponseBody';
+/**
+ * TypeScript/JavaScript SDK for the Bizgo Communication API.
+ *
+ * ```ts
+ * import { Bizgo, Environment, alimtalk, sms } from '@bizgo/bizgo-sdk-comm-js';
+ *
+ * const client = new Bizgo({ environment: Environment.SANDBOX }); // API key from BIZGO_API_KEY
+ *
+ * // AlimTalk, falling back to SMS if it fails
+ * const result = await client.send.omni({
+ *   to: '01000000000',
+ *   messages: [
+ *     alimtalk({ senderKey: 'SENDER_KEY', templateCode: 'TEMPLATE_CODE', msgType: 'AT', text: '...' }),
+ *     sms({ from: '01000000000', text: '...' }),
+ *   ],
+ *   idempotencyKey: 'order-1234',
+ * });
+ * ```
+ *
+ * See https://developers.bizgo.io/api-sdk/api-reference for the API itself.
+ *
+ * @packageDocumentation
+ */
+export { alimtalk, brandMessage, international, mms, naverTalk, rcs, sms } from './channels.js';
+export { Bizgo, type ClientOptions } from './client.js';
+export { Environment } from './config.js';
+export {
+  APIConnectionError,
+  APIError,
+  type APIErrorInit,
+  APITimeoutError,
+  AuthenticationError,
+  BadRequestError,
+  BizgoError,
+  ConfigurationError,
+  DuplicateRequestError,
+  type ErrorLayer,
+  InternalServerError,
+  InvalidResponseError,
+  NotFoundError,
+  PermissionDeniedError,
+  RateLimitError,
+  ValidationError,
+  type ValidationIssue,
+  WebhookVerificationError,
+} from './errors.js';
+export { SERVICE_CODES } from './generated/error-codes.js';
+export { OPERATIONS, type OperationId } from './generated/operations.js';
+export * from './generated/resources.js';
+export type * from './generated/types.js';
+export { WEBHOOKS, type WebhookName, type WebhookPayloads, type WebhookSpec } from './generated/webhooks.js';
+export { combineHooks, type Hooks, type RequestEvent } from './hooks.js';
+export { DEFAULT_IDEMPOTENCY_TTL } from './idempotency.js';
+export type { AppInfo } from './identity.js';
+export { maskPhone, redact } from './mask.js';
+export type { Operation, ResultPath } from './operation.js';
+export { DEFAULT_RATE_LIMIT, type RateLimitOptions } from './rate-limit.js';
+export {
+  type BrandImageKind,
+  type BrandUploadOptions,
+  type FileInput,
+  Files,
+  MMS_MAX_BYTES,
+  type UploadOptions,
+} from './resources/files.js';
+export {
+  type HistoryParams,
+  type IterHistoryParams,
+  type IterMoHistoryParams,
+  Messages,
+  type MoHistoryParams,
+  type ServiceType,
+  type StatisticsParams,
+} from './resources/messages.js';
+export { type ConsumeOptions, Reports } from './resources/reports.js';
+export {
+  type BulkParams,
+  type LmsParams,
+  type MmsParams,
+  type OmniParams,
+  type Recipient,
+  type Recipients,
+  Send,
+  type SmsParams,
+} from './resources/send.js';
+export {
+  type BulkChunk,
+  type BulkChunkError,
+  BulkSendResult,
+  type MessagePage,
+  type MoPage,
+  ReportBatch,
+  SendResult,
+} from './results.js';
+export type { Fetch, Logger } from './transport.js';
+export type { NamedFile, UploadFile } from './upload.js';
+export { VERSION } from './version.js';
+export {
+  ack,
+  counselAck,
+  DEFAULT_TOLERANCE_SECONDS,
+  MAX_BODY_BYTES,
+  parseMo,
+  parseReport,
+  parseWebhook,
+  SIGNATURE_HEADER,
+  TIMESTAMP_HEADER,
+  type VerifySignatureParams,
+  verifySignature,
+  type WebhookBody,
+  type WebhookHeaders,
+  WebhookReceiver,
+  type WebhookReceiverOptions,
+  type WebhookSecret,
+} from './webhooks.js';

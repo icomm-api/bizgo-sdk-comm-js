@@ -1,14 +1,29 @@
 {
   "compilerOptions": {
-    "target": "ES2020",
-    "module": "ESNext",  // Rollup과 함께 사용하기 위해 ESNext로 설정
-    "moduleResolution": "node",
-    "declaration": true,  // .d.ts 파일을 생성합니다.
-    "outDir": "./dist",  // 출력 디렉토리
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "types": ["node"],
     "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": false,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "useUnknownInCatchVariables": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": false,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "declaration": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "paths": {
+      "@bizgo/bizgo-sdk-comm-js": ["./src/index.ts"],
+      "@bizgo/bizgo-sdk-comm-js/webhooks": ["./src/index.ts"],
+      "@bizgo/bizgo-sdk-comm-js/testing": ["./src/testing.ts"],
+      "@bizgo/bizgo-sdk-comm-js/otel": ["./src/otel.ts"]
+    }
   },
-  "include": ["src/**/*", "src/builders/send/.ts"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["src", "test", "examples", "vitest.config.ts", "tsup.config.ts"]
 }
