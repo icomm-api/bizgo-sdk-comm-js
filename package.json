@@ -1,10 +1,13 @@
 {
   "name": "@bizgo/bizgo-sdk-comm-js",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "An ts SDK for Bizgo Communication API services",
   "main": "dist/index.cjs",
   "module": "dist/index.esm.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json && rollup -c",
     "test": "jest",

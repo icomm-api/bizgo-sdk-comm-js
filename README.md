@@ -1,4 +1,4 @@
-# Bizgo SDK Communication JS v1.0.1
+# Bizgo SDK Communication JS v1.0.3
 ---
 [![SDK Documentation](https://img.shields.io/badge/SDK-Documentation-blue)]() [![Test Coverage](https://img.shields.io/badge/tests-66%20passed-brightgreen)]() [![API Reference](https://img.shields.io/badge/api-reference-blue.svg)]() [![Apache V2 License](https://img.shields.io/badge/license-Apache%20V2-blue.svg)]()
 
@@ -883,7 +883,7 @@ export async function GET(req: Request) {
 
 ---
 
-**버전**: v1.0.1  
+**버전**: v1.0.3  
 
 
 
