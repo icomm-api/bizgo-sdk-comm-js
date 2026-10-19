@@ -105,12 +105,12 @@
     "prepublishOnly": "npm run build"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.14",
+    "@biomejs/biome": "2.5.15",
     "@opentelemetry/api": "1.9.1",
     "@types/node": "18.19.130",
-    "tsup": "8.5.1",
+    "tsup": "9.0.0",
     "typescript": "5.9.3",
-    "vite": "6.4.3",
+    "vite": "6.4.4",
     "vitest": "3.2.7",
     "yaml": "2.9.1"
   }
